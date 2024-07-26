@@ -1,0 +1,11 @@
+#Web Automation Configuration
+URL=https://www.advantageonlineshopping.com/#/
+Browser=Google
+
+
+#User ID Credential
+
+
+
+
+

@@ -1,0 +1,285 @@
+﻿Function ScrollIntoView(PageObj, WebObj)
+	Reporter.Filter = rfDisableAll
+
+	Dim JavaScriptCmd
+	'Char(34) is ASCII for double quote "", to run the script the javascript command or code needed to be in string and the syntax to run the javascript is clashing with vbscript syntax.
+	'To avoid this issue, use Char(34) to input the double quotes during runtime so that when executing the javascript it can execute with correct syntax 
+	JavaScriptCmd = "window.document.evaluate(" & Chr(34) & ""&WebObj&"" & Chr(34) & ", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' });"
+
+	'Variable "PageObj" is needed due to RunScript method is tied or related to Page Class objects
+	PageObj.RunScript(JavaScriptCmd)
+	
+	Wait 0.5
+End Function
+'Function to static scroll in web
+Function ScrollBy(PageObj, XPixel, YPixel)
+
+	'Example:
+	'PageObj.RunScript("window.scrollBy("0","900")")
+	'Example below will scroll down 900 pixels
+	'PageObj.RunScript("window.scrollBy("0","-200")")
+	'Example above will scroll up 200 pixels
+	'****Notes****
+	'Accepts negative value to scroll up
+	
+	wait 3
+	Reporter.Filter = rfDisableAll
+	
+	PageObj.RunScript("window.scrollBy("&XPixel&","&YPixel&")")
+	
+	
+	
+End Function
+'Function for simulating keyboard inputs, can input more
+Function SendKeys(Keyword)
+	Set WsShell = CreateObject("WScript.Shell")
+
+	
+	Select Case UCase(Keyword)
+		Case "BACKSPACE", "BACK SPACE", "BACK_SPACE"
+			WsShell.SendKeys "{BACKSPACE}"
+		Case "PAGE_UP", "PAGE UP", "PAGEUP","UP"
+			WsShell.SendKeys "{PGUP}"
+		Case "PAGE_DOWN", "PAGE DOWN", "PAGEDOWN","DOWN"
+			WsShell.SendKeys "{PGDN}"
+		Case "TAB"
+			WsShell.SendKeys "{TAB}"
+		Case "ENTER"
+			WsShell.SendKeys "{ENTER}"
+		Case "CTRL+W", "CTRL_W"
+			WsShell.SendKeys "^w"
+		Case "ALT+SPACE"
+			WsShell.SendKeys "% "
+		Case "X"
+			WsShell.SendKeys "x"
+		
+	End Select
+	wait 1
+	Set WsShell = Nothing
+
+End Function
+'function not finished ---> WIP, dont use it yet
+Function JavaScriptClick(PageObj, WebObj)
+
+	Dim JavaScrpCmd 
+	
+	JavaScrpCmd = "window.document.evaluate(" & Chr(34) & ""&WebObj&"" & Chr(34) & ", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue.click();"
+	
+	PageObj.RunScript JavaScrpCmd
+	
+	
+End Function
+Function CaptureText(objElement)
+	Dim ClassPropertyVal, Balance
+	
+	ClassProperty = objElement.GetTOProperty("Class Name")
+	If ClassProperty = "WebEdit" Then
+		TextExtracted = objElement.GetROProperty("value")
+	End If
+	
+	CaptureText = TextExtracted
+End Function
+Function SimulateMouseClick(stepName, ObjElement, TypeMouseClick, TestData, ScreenCaptureOn)
+	Dim ObjXCoor, ObjYCoor, ObjWidth, ObjHeight, XCoor, YCoor, ScreenshotPath
+	Set MercuryObj = CreateObject("Mercury.DeviceReplay")
+
+	On Error Resume Next
+	ScreenshotPath = TakeScreenshot()
+	'Get the Object's X Coordinate
+	ObjXCoor = ObjElement.GetROProperty("abs_x")
+	'Get the Object's Y Coordinate
+	ObjYCoor = ObjElement.GetROProperty("abs_y")
+	'Get the Object's Width
+	ObjWidth = ObjElement.GetROProperty("width")
+	'Get the Object's Height
+	ObjHeight = ObjElement.GetROProperty("height")
+	
+	'Calculate the X and Y Coordinate to get the center coordinate of the objects by dividing the width and heigh in half
+	XCoor = ObjXCoor + (ObjWidth/2)
+	YCoor = ObjYCoor + (ObjHeight/2)
+	
+	Select Case UCase(TypeMouseClick)
+		
+		'Perform Left Click
+		Case "LEFT", "LEFT_MOUSE_BUTTON", "LEFT_BUTTON", "LEFT_CLICK", "LEFT", "LEFT MOUSE BUTTON", "LEFT BUTTON", "LEFT CLICK", "CLICK"
+			MercuryObj.MouseClick XCoor, YCoor, 0
+		'Perform Middle Click
+		Case "MIDDLE", "MIDDLE_MOUSE_BUTTON", "MIDDLE_BUTTON", "MIDDLE_CLICK", "MIDDLE", "MIDDLE MOUSE BUTTON", "MIDDLE BUTTON", "MIDDLE CLICK"
+			MercuryObj.MouseClick XCoor, YCoor, 1
+		'Perform Right Click
+		Case "RIGHT", "RIGHT_MOUSE_BUTTON", "RIGHT_BUTTON", "RIGHT_CLICK", "RIGHT", "RIGHT MOUSE BUTTON", "RIGHT BUTTON", "RIGHT CLICK"
+			MercuryObj.MouseClick XCoor, YCoor, 2
+	End Select
+	
+	'Reporting Function
+	Reporter.Filter = rfEnableAll
+	If Err.Number <> 0 Then
+		ErrorDescription = Err.Description
+		Reporter.ReportHtmlEvent micFail, stepName, ErrorDescription, ScreenshotPath
+		'If error occurs this function will end the current test
+		EndTestExecution()
+	Else
+		'If ScreenCaptureOn receives Value "1" it will capture screenshot in html report
+		If ScreenCaptureOn = 1 Then
+				Reporter.ReportHtmlEvent micPass, stepName, TestData, ScreenshotPath
+			Else
+				Reporter.ReportHtmlEvent micPass, stepName, TestData
+		End If
+	End If
+	Reporter.Filter = rfDisableAll
+	
+	
+	Set MercuryObj = Nothing
+	
+End Function
+
+'***********************************************Verification Function***************************************************************
+
+Function VerifyTextContains(stepName, actualObject, expected, ScreenCaptureOn)
+	
+	Dim objectText, strTakeScreenshot, ClassProperty
+	'Vbscript built in functions when encounter any error, it will continue on the next line and will not stop the script.
+	On Error Resume Next
+	
+	ClassProperty = actualObject.GetTOProperty("Class Name")
+	If ClassProperty = "WebEdit" Then
+			objectText = actualObject.GetROProperty("value")
+		ElseIf ClassProperty = "WebElement" Then
+			objectText = trim(actualObject.GetROProperty("innertext"))
+	End If
+	strTakeScreenshot = TakeScreenshot()
+	Reporter.Filter = rfEnableAll
+	'To catch any object error, Ex. Cannot identify the object "[ WebElement ]" (of class WebElement).
+	'If Err.Number IS NOT EQUAL to "0"
+	If Err.Number <> 0 Then
+		ErrorDescription = Err.Description
+		Reporter.ReportHtmlEvent micFail, stepName, ErrorDescription, ScreenshotPath
+		EndTestExecution()
+	Else
+		If Instr(objectText, expected) > 0 Then
+			If ScreenCaptureOn=1 Then
+				
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expected & vbNewLine & "Actual Result: " & objectText, strTakeScreenshot
+				Else
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expected & vbNewLine & "Actual Result: " & objectText
+			End If
+	
+		Else
+			Reporter.ReportEvent micFail, stepName, "Expected Result:" & expected & vbNewLine & "Actual Result: " &  objectText, strTakeScreenshot
+		End If
+	End If
+
+	Reporter.Filter = rfDisableAll
+	objectText = ""
+End Function
+
+Function VerifyText(stepName, actualObject, expect, ScreenCaptureOn)
+
+'Function VerifyText(actualObject, expect, ScreenCaptureOn,stepName)
+'(actualObject, expect,ScreenCaptureOn,stepName)
+	Dim ScreenshotPath, objectText, ClassProperty
+	'Vbscript built in functions when encounter any error, it will continue on the next line and will not stop the script.
+	On Error Resume Next
+	
+	ClassProperty = actualObject.GetTOProperty("Class Name")
+	If ClassProperty = "WebEdit" Then
+			objectText = actualObject.GetROProperty("value")
+		ElseIf ClassProperty = "WebElement" Then
+			objectText = trim(actualObject.GetROProperty("innertext"))
+		ElseIf ClassProperty = "WebButton" Then
+			objectText = trim(actualObject.GetROProperty("innertext"))
+	End If
+	
+	ScreenshotPath = TakeScreenshot()
+	Reporter.Filter = rfEnableAll
+	'To catch any object error, Ex. Cannot identify the object "[ WebElement ]" (of class WebElement).
+	'If Err.Number IS NOT EQUAL to "0"
+	If Err.Number <> 0 Then
+		ErrorDescription = Err.Description
+		Reporter.ReportHtmlEvent micFail, stepName, ErrorDescription, ScreenshotPath
+		'EndTestExecution()
+	Else
+		If expect = objectText Then
+			If ScreenCaptureOn = 1 Then
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText, ScreenshotPath
+				Else
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText
+			End If
+			
+		Else
+			Reporter.Filter = rfEnableAll
+			Reporter.ReportEvent micFail,"Verification Failed" & label, "Expected Result:" & expect & vbNewLine & "Actual Result: " &  objectText, ScreenshotPath
+			'EndTestExecution()
+		End If
+	End If
+	Reporter.Filter = rfDisableAll
+	objectText = ""
+End Function
+
+
+'***********************************************Verification Function***************************************************************
+
+
+Function DownloadFiles(stepName, ObjElement, FileName)
+	'If not object to passed, just put the keyword "Nothing"
+	If isObject(ObjElement) And Not ObjElement Is Nothing Then
+			ObjElement.Click
+		Else
+			Print("No Web Object was given")
+			
+	End If
+
+	wait 2
+	Dim BrowserType, i, FolderPath
+	BrowserType = getUserProperties("Browser")
+	'Create or ensured the folder to save downloaded files existed based on users configuration
+	FolderPath = CreateFolder()
+	FilePath = FolderPath & "\" & FileName
+	'To maximize the window
+	SendKeys("ALT+SPACE")
+	SendKeys("X")
+	wait 0.5
+	Select Case UCase(BrowserType)
+		Case "CHROME", "GOOGLE CHROME", "GOOGLE"
+			For i = 1 To 9
+				SendKeys("TAB")
+			Next
+		Case "MSEDGE", "MICROSOFT EDGE", "EDGE", "MICROSOFTEDGE"
+			For i = 1 To 7
+				SendKeys("TAB")
+			Next
+		Case "MOZILLA", "FIREFOX", "MOZILLAFIREFOX", "MOZILLA FIREFOX"
+			For i = 1 To 5
+				SendKeys("TAB")
+			Next
+	End Select
+	SendKeys("Enter")
+	wait 1
+
+	WaitObject Dialog("regexpwndtitle:=Save As").WinEdit("regexpwndclass:=Edit"), 10
+	'Enter the path and save the file
+	Dialog("regexpwndtitle:=Save As").WinEdit("regexpwndclass:=Edit").Type FilePath
+	wait 0.5
+	Dialog("regexpwndtitle:=Save As").WinButton("regexpwndtitle:=&Save").Click
+	wait 3
+	'If pdf with the same name exist, click yes to replace it
+	If Dialog("regexpwndtitle:=Confirm Save As").WinButton("regexpwndtitle:=&Yes").Exist(2) Then
+		Dialog("regexpwndtitle:=Confirm Save As").WinButton("regexpwndtitle:=&Yes").Click
+		wait 1
+	End If
+	'SendKeys to close the window
+	SendKeys("CTRL+W")
+	SystemUtil.Run FilePath
+	wait 3
+	ScreenshotPath =TakeScreenshot()
+	'SendKeys to close the file opened
+	SendKeys("CTRL+W")
+	Reporter.Filter = rfEnableAll
+	'Reporting step to show the screenshots and path the file was saved
+	Reporter.ReportHtmlEvent micPass, stepName, "File Downloaded At: " & FilePath, ScreenshotPath
+	Reporter.Filter = rfDisableAll
+
+End Function
+
+
+

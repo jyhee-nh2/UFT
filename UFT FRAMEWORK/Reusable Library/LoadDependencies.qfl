@@ -1,0 +1,61 @@
+﻿'LoadDependencies "Login_Existing_UserProfile.qfl", "[Login]_Web_Login_Existing_UserProfile.xlsx", "AOS_Web_Login_01"
+Function LoadDependencies(ScenarioFunctionLib, ExcelTestDataFileName, ExcelFileTestDataSheet)
+	
+	Reporter.Filter = rfDisableAll
+	Dim ScenarioFolderPath
+	'***Load 3 function library --> CoreLib, Reusable, Scenario Lib
+	'***Load Web,Android and IOS object function library
+	'Get the scenario path
+	ScenarioFolderPath = Left (Environment.Value("TestDir"), Instr(Environment.Value("TestDir"), Environment.Value("TestName")) - 1)
+	LoadFunctionLibrary GetActualProjPath("FrameworkPath") & "Resources\CoreLib.qfl"
+	'Import Web Object Func Lib
+	LoadFunctionLibrary GetActualProjPath("FrameworkPath") & "Resources\WebObjectAction.qfl"
+	'Import Android Object Func Lib
+	LoadFunctionLibrary GetActualProjPath("FrameworkPath") & "Resources\AndroidObjectAction.qfl"
+	'Import IOS Object Func Lib
+	LoadFunctionLibrary GetActualProjPath("FrameworkPath") & "Resources\IOSObjectAction.qfl"
+	LoadFunctionLibrary GetActualProjPath("FrameworkPath") & "Reusable Library\Reusable.qfl"
+	LoadFunctionLibrary ScenarioFolderPath & ScenarioFunctionLib
+
+	'Import Test Data via this Function
+
+	ImportTestDataFromExcel ExcelTestDataFileName, ExcelFileTestDataSheet
+	CheckIteration()
+	
+	
+	
+End Function
+
+
+
+'***************Function Load external or additional function library (Optional if needed)************************************
+Function LoadAdditionalFunctionLibrary(ModuleFolder, ScenarioFolder, ScenarioFuncLibName)
+
+	'Load additional function library from another module or scenario
+	LoadFunctionLibrary GetActualProjPath("TestScriptPath") & ModuleFolder & "\" & ScenarioFolder & "\" & ScenarioFuncLibName
+	
+		
+End Function
+
+
+
+Function GetActualProjPath(TypesOfPath)
+	Dim ProjPath, ActualProjPath, getProjPathCount
+	
+	ProjPath = Environment.Value("TestDir")
+	getProjPathCount = Instr(ProjPath, "\TestScript")
+	'Get root folder of the framework and create a path
+	If UCASE(TypesOfPath) = "FRAMEWORKPATH" Then
+			ActualProjPath = Left(ProjPath, getProjPathCount)
+		'Get Test Script folder path and creare a path to it
+		'Useful for loading additional function library from another module or scenario
+		ElseIf UCASE(TypesOfPath) = "TESTSCRIPTPATH" Then
+			ActualProjPath = Left(ProjPath, getProjPathCount) & "TestScript\"
+	End If
+
+	
+	
+	GetActualProjPath = ActualProjPath
+	
+End Function
+

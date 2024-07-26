@@ -1,0 +1,54 @@
+﻿
+
+'Function VerifyTextAndroid(actualObject, expect,ScreenCaptureOn,stepName)
+Function VerifyTextAndroid(stepName, actualObject, expect,ScreenCaptureOn)
+    	Dim ScreenshotPath, objectText, ClassProperty
+	'Vbscript built in functions when encounter any error, it will continue on the next line and will not stop the script.
+	On Error Resume Next
+	
+	ClassProperty = actualObject.GetTOProperty("Class Name")
+	If  ClassProperty = "MobileLabel" Then
+			objectText = actualObject.GetROProperty("text")
+	ElseIf ClassProperty = "WebEdit" Then
+			objectText = actualObject.GetROProperty("value")
+	ElseIf ClassProperty = "WebElement" Then
+			objectText = trim(actualObject.GetROProperty("innertext"))
+	End If
+
+	
+	
+	ScreenshotPath = TakeScreenshot()
+	Reporter.Filter = rfEnableAll
+	'To catch any object error, Ex. Cannot identify the object "[ WebElement ]" (of class WebElement).
+	'If Err.Number IS NOT EQUAL to "0"
+	If Err.Number <> 0 Then
+		ErrorDescription = Err.Description
+		Reporter.ReportHtmlEvent micFail, stepName, ErrorDescription, ScreenshotPath
+		EndTestExecution()
+		Print("err.num:<>0")
+'			If expect = objectText Then
+'			If ScreenCaptureOn = 1 Then
+'					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText, ScreenshotPath
+'				Else
+'					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText
+'			End If	
+	Else
+		If expect = objectText Then
+			If ScreenCaptureOn = 1 Then
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText, ScreenshotPath
+				Else
+					Reporter.ReportEvent micPass, stepName, "Expected Result:" & expect & vbNewLine & "Actual Result: " & objectText
+			End If
+			
+		Else
+			Reporter.Filter = rfEnableAll
+			Reporter.ReportEvent micFail, stepName &"Verification Failed" & label, "Expected Result:" & expect & vbNewLine & "Actual Result: " &  objectText, ScreenshotPath
+'			EndTestExecution()
+		End If
+	End If
+	Reporter.Filter = rfDisableAll
+	objectText = ""
+End Function
+
+
+

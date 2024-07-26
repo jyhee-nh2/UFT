@@ -1,0 +1,500 @@
+﻿
+Function CheckIteration()
+	If InStr(UCase(DataTable("Run", dtGlobalSheet)),"Y") > 0 Then
+'		If Not InStr(UCase(DataTable("Run", dtLocalSheet)),"Y") > 0 Then
+'			ExitActionIteration()
+'		End If		
+'/////////////////////////////////////////////////////////////////////////////////////////////
+''       DataTable.ImportSheet TestDataPath, Trim(ExcelTestDataSheet), dtGlobalSheet
+'  	'Parameter for Web Automation
+'    	DataTable.GlobalSheet.AddParameter "BrowserType", getUserProperties("Browser")
+'        DataTable.GlobalSheet.AddParameter "URL", getUserProperties("URL")
+'        'Here will add Parameter for Mobile (Android and IOS) for Mobile Automation
+'        DataTable.GlobalSheet.AddParameter "OSType", getConfigProperties("OSType")
+'        DataTable.GlobalSheet.AddParameter "DeviceID", getConfigProperties("DeviceID")
+'        DataTable.GlobalSheet.AddParameter "Identifier", getConfigProperties("Identifier")
+'        DataTable.GlobalSheet.AddParameter "Instrumented", getConfigProperties("Instrumented")
+'        'Parametert for Window Application Automation
+'        DataTable.GlobalSheet.AddParameter "WindowsAppName", getUserProperties("WinAppName") 
+        '/////////////////////////////////////////////////////////////////////////////////////////////
+	Else
+		ExitTestIteration()
+	End If
+End Function
+
+
+'Functions to get Project Path (root folder)
+Function GetProjPath()
+
+	Dim filePath, getProjPathPos, ActProjectPath
+	'USe UFT Builti in function to get current test script location
+	filePath = Environment.Value("TestDir")
+	'Use Instr to get the position of the root folder and use Left function to filter and get the root folder path
+	getProjPathPos = Instr(filePath, "\TestScript")
+	ActProjectPath = Left(filePath, getProjPathPos)
+	GetProjPath = ActProjectPath
+	
+End Function
+
+
+
+Function ExecuteTestSteps(stepName, ObjElement, action, TestData, ScreenCaptureOn)
+'Function ExecuteTestSteps(ObjElement, action, stepName, TestData, ScreenCaptureOn)
+	Dim ScreenshotPath
+	
+	On Error Resume Next
+	ScreenshotPath = TakeScreenshot()
+	Select Case UCase(action)	
+		Case "CLICK"
+			
+			ObjElement.Click
+		Case "TAP"
+			
+			ObjElement.Tap
+		Case "SET"
+			
+			ObjElement.Set TestData
+			
+		Case "SELECT"
+            		ObjElement.Select TestData	
+		
+	End Select
+	
+	Reporter.Filter = rfEnableAll
+	
+	If Err.Number <> 0 Then
+		ErrorDescription = Err.Description
+		Reporter.ReportHtmlEvent micFail, stepName, ErrorDescription, ScreenshotPath
+		'If error occurs this function will end the current test
+		EndTestExecution()
+	Else
+		'If ScreenCaptureOn receives Value "1" it will capture screenshot in html report
+		If ScreenCaptureOn = 1 Then
+				Reporter.ReportHtmlEvent micPass, stepName, TestData, ScreenshotPath
+			Else
+				Reporter.ReportHtmlEvent micPass, stepName, TestData
+		End If
+	End If
+	
+	Reporter.Filter = rfDisableAll
+
+End Function
+Function getConfigProperties(configPropertiesType)
+	
+	Const ForReading = 1
+	Dim envType
+
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	configLocation =  GetProjPath() & "config.txt"
+	
+	If Not FSO.FileExists(configLocation) Then
+			MsgBox "Config File Not Exist. Please check if your file exists or not", 0,"Configuration Error"
+		Else
+			Set configFile = FSO.OpenTextFile(configLocation, ForReading, False)
+			Do While configFile.AtEndOfStream <> True
+				outputStr = configFile.ReadLine
+				If Left(outputStr, Len(configPropertiesType)) = configPropertiesType Then
+					SplitStr = Split(outputStr, "=")(1)
+					Exit Do
+				End If
+			
+			Loop
+			configFile.Close
+		
+			getConfigProperties = SplitStr
+	End If
+	
+	Set FSO = Nothing
+	
+End Function
+Function getUserProperties(userPropertiesType)
+	
+	
+	Const ForReading = 1
+	Dim ProjPath
+	ProjPath = GetProjPath()
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	UPLocation = ProjPath & "UserProperty.txt"
+	If Not FSO.FileExists(UPLocation) Then
+			MsgBox "UserProperty File Not Exist. Please check if your file exists or not", 0,"Configuration Error"
+			
+		Else
+			'	
+			Set configFile = FSO.OpenTextFile(UPLocation, ForReading, False)
+			
+			Do While configFile.AtEndOfStream <> True
+				outputStr = configFile.ReadLine
+				If Left(outputStr, Len(userPropertiesType)) = userPropertiesType Then
+					SplitStr = Split(outputStr, "=")(1)
+					Exit Do
+				End If
+			
+			Loop
+			
+			configFile.Close
+		
+			getUserProperties = SplitStr
+			
+	End If
+
+	Set FSO = Nothing
+
+End Function
+Function WaitObject(objElement, SecondsToWait)
+	
+	WaitObject = objElement.Exist(SecondsToWait)
+	
+End Function
+'********************Function Import Test Data From Excel************************
+Function ImportTestDataFromExcel(ExcelTestDataFileName, ExcelTestDataSheet)
+
+	Dim configVal, TestDataPath
+	
+	configVal = UCase(getConfigProperties("Environment"))
+	'Print(configVal)
+	'Error handling if input invalid name for test data environment
+	If NOT configVal = "SIT" and NOT configVal = "UAT" and NOT configVal = "STAGING" Then
+			MsgBox "There is no such environment test data available! Please check your config files", 0,"Configuration Error"
+		Else
+			TestDataPath = GetProjPath & "TestData" & "\" & configVal &  "\" & ExcelTestDataFileName
+			
+	End If
+	
+'	
+
+       DataTable.ImportSheet TestDataPath, Trim(ExcelTestDataSheet), dtGlobalSheet
+       If InStr(UCase(DataTable("Run", dtGlobalSheet)),"Y") > 0 Then
+  	'Parameter for Web Automation
+    	DataTable.GlobalSheet.AddParameter "BrowserType", getUserProperties("Browser")
+        DataTable.GlobalSheet.AddParameter "URL", getUserProperties("URL")
+        'Here will add Parameter for Mobile (Android and IOS) for Mobile Automation
+        DataTable.GlobalSheet.AddParameter "OSType", getConfigProperties("OSType")
+        DataTable.GlobalSheet.AddParameter "DeviceID", getConfigProperties("DeviceID")
+        DataTable.GlobalSheet.AddParameter "Identifier", getConfigProperties("Identifier")
+        DataTable.GlobalSheet.AddParameter "Instrumented", getConfigProperties("Instrumented")
+        'Parametert for Window Application Automation
+        DataTable.GlobalSheet.AddParameter "WindowsAppName", getUserProperties("WinAppName") 
+	End if 
+	
+End Function
+
+'-----------------------------Function Generate TimeStamp-----------------------------------
+Function TimeStampNow()
+		
+Dim strDateNow
+
+strDateNow = Now()
+
+TimeStampFormat =  Year(strDateNow) & "-" &Right("00" & Month(strDateNow), 2) & "-" & Right("00" & Day(strDateNow), 2) & "_"  & Right("00" & Hour(strDateNow), 2) & Right("00" & Minute(strDateNow),2) & Right("00"& Second(strDateNow),2)
+
+
+TimeStampNow = TimeStampFormat
+	
+End Function
+
+'-----------------------------Function Generate TimeStamp-----------------------------------
+
+
+'-----------------------------Function Take Screenshot-----------------------------------
+
+Function TakeScreenshot()
+
+	Dim FullScreenshotPath
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	SnapshotFolderPath = Environment.Value("ResultDir") & "\Report\Resources\Snapshots"
+	If Not FSO.FolderExists(SnapshotFolderPath) Then
+		FSO.CreateFolder(SnapshotFolderPath)
+	End If
+	
+	Set FSO = Nothing
+	
+	TakeScreenshot = SnapshotFolderPath & "\Screenshot_" & TimeStampNow() & ".png"
+	'Desktop as an Object to allow screen capture the whole desktop
+	Desktop.CaptureBitmap TakeScreenshot, True
+	
+End Function
+
+'-----------------------------Function Take Screenshot-----------------------------------
+
+Function CreateFolder()
+
+	Dim FolderObj, DownloadFiles_Path
+	'Get the path for downloaded files (Ex. pdf and etc)
+	DownloadFiles_Path = getConfigProperties("DownloadFolder_Location")
+	'Create Object for folder creation
+	Set FolderObj = CreateObject("Scripting.FileSystemObject")
+	'If the folder doesnt exist yet it will create new one based on the path set in config
+	If Not FolderObj.FolderExists(DownloadFiles_Path) Then
+		FolderObj.CreateFolder(DownloadFiles_Path)
+	End If
+	Set FolderObj = Nothing
+	'Return downloaded files path
+	CreateFolder = DownloadFiles_Path
+	
+End Function
+
+
+'*****************************Core Functions for Web Platform***************************************
+
+'Insert any functions for Web plarform here for better traceability
+
+Function LaunchBrowser(BrowserType, URL)
+
+	CloseBrowser()
+	Wait 1
+	
+	'Avoid and adapt human error
+	Select Case UCase(BrowserType)
+	
+		Case "CHROME", "GOOGLE CHROME", "GOOGLE"
+			BrowserType = "chrome.exe"
+		Case "MSEDGE", "MICROSOFT EDGE", "EDGE", "MICROSOFTEDGE"
+			BrowserType = "msedge.exe"
+		Case "MOZILLA", "FIREFOX", "MOZILLAFIREFOX", "MOZILLA FIREFOX"
+			BrowserType = "firefox.exe"
+		
+	End Select
+
+'Print("BrowserType " &BrowserType)
+	SystemUtil.Run BrowserType, "", "", "", 3
+	Wait 1
+	Set LaunchBrowser = Browser("CreationTime:=0")
+	Wait 1
+	LaunchBrowser.ClearCache
+	Wait 1
+	LaunchBrowser.Navigate URL
+	Wait 1
+	AIUtil.SetContext Browser("CreationTime:=0")
+	LaunchBrowser.Sync
+	wait 2
+	LaunchBrowser.Maximize
+
+End Function
+
+Function CloseBrowser()
+	Reporter.Filter = rfDisableAll
+	While Browser("CreationTime:=0").Exist(0)   
+	Browser("CreationTime:=0").Close
+	Wend
+
+End Function
+Function EndTestExecution()
+	
+	Reporter.Filter = rfDisableAll
+	'SystemUtil.CloseProcessByName("chrome.exe")
+	While Browser("CreationTime:=0").Exist(0)   
+	Browser("CreationTime:=0").Close
+	Wend
+	
+	'UFT Built-in function for exiting the current running test
+	ExitTest()
+	
+	
+End Function
+
+
+
+'*****************************End Functions for Web Platform***************************************
+
+
+
+
+
+
+
+'*****************************Core Functions for Android & IOS Platform***************************************
+
+'Insert any core functions for Android & IOS here for better tracking
+
+
+
+Function LaunchApp(OsType, DeviceId, AppIdentifier, AppInstrumented)
+
+	Set oDevice=Device("Class Name:=Device","ostype:=" & OsType ,"id:=" & DeviceId)
+	Set oApp=oDevice.App("Class Name:=App","identifier:=" & AppIdentifier ,"instrumented:=" & AppInstrumented)
+	Set	LaunchApp=oApp
+	'			oApp.Launch Install, Restart
+	oApp.Launch DoNotInstall, Restart
+	'			oApp.Launch
+	oDevice.OpenViewer
+End Function
+
+
+
+'*****************************End Functions for Android & IOS Platform***************************************
+
+
+
+
+
+'*****************************Core Functions for Windows Application Platform***************************************
+
+'Insert any core functions for Windows Application for better tracking
+
+
+
+Function LaunchWinApp()
+	
+	CloseWinApp()
+	
+	Wait 1
+
+	SystemUtil.Run getConfigProperties("WinAppLocation")
+
+	
+End Function
+Function CloseWinApp()
+		
+	Dim WinAppLocation
+	Reporter.Filter = rfDisableAll
+	WinAppLocation = getConfigProperties("WinAppLocation")
+	SplitAppPath = Split(WinAppLocation, "\")
+	WinAppName = CStr(SplitAppPath(UBound(SplitAppPath)))
+	SystemUtil.CloseProcessByName(WinAppName)
+
+End Function
+
+
+
+'*****************************End Functions for Android & IOS Platform***************************************
+
+
+
+
+
+'******************** For Web & Android & IOS Platform****************************
+
+
+
+
+
+Function GenerateRndText(TypeOfChar, LetterCase, TextRange)
+
+	Dim Alphabet, AlphabetLCase, NumericVal, LenChar, SelectedVal, RandomIndex, RandomText
+	Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	NumericVal = "123456789"
+	AlphabetLCase = "abcdefghijklmnopqrstuvwxyz"
+	RandomText = ""
+	
+	Select Case UCase(TypeOfChar)
+		'Gives the option to generate a mixture of alphabets and numbers
+		'If user wishes to generate random alphanumerical value, the variable will contain a mixture of Alphabet, Number and Lower Case Alphabet for more flexibility
+		Case "ALPHANUMERIC", "ALPHANUMERICAL", "ALPHABETNUMERIC", "ALPHABETNUMERICAL", "ALPHA NUMERIC", "ALPHA NUMERICAL", "ALPHABET NUMERIC", "ALPHABET NUMERICAL"
+			SelectedVal = Alphabet & NumericVal & AlphabetLCase
+		Case "ALPHABET", "ALPHA", "LETTER"
+			SelectedVal = Alphabet & AlphabetLCase
+		Case "NUMERICAL", "NUMERIC", "NUMBERS", "NUMBER", "NUM"
+			SelectedVal = NumericVal
+	End Select
+
+
+	Randomize
+	
+	'Get the number of character in the list
+	LenChar = Len(SelectedVal)
+	For i = 1 To TextRange
+		'get random index generated by Rnd and convert to Int
+		RandomIndex = Int((LenChar * Rnd) +1)
+		'Select characters based on the random index generated by Rnd
+		'Use Mid function to extract the characters based on the position in the list
+		RandomText = RandomText & Mid(SelectedVal, RandomIndex, 1)
+	Next
+	
+	'Give user the option to convert random text into upper case or lower case
+	If UCase(LetterCase) = "UPPERCASE" Or UCase(LetterCase) = "UPPER CASE" Or UCase(LetterCase) = "UP CASE" Then
+			GenerateRndText = UCase(RandomText)
+			
+		ElseIf UCASE(LetterCase) = "LOWERCASE" Or UCase(LetterCase) = "LOWER CASE" Or UCase(LetterCase) = "LOW CASE" Then
+			GenerateRndText = LCase(RandomText)
+			
+		Else
+			GenerateRndText = RandomText
+			
+	End If
+	
+	
+	
+End Function
+Function GenerateRndAmount(NumRange)
+	
+	Dim RegEx, ReplacedVal, SplitNumRange, MaxNum, MinNum, RndVal
+	
+	'Initialize the regEx object
+	Set regEx = New RegExp 
+	'Set the regEx to identify non-digit character with one or more occurences
+	'Able to use (\D) but when it comes to replace the delimeter it will not be flexible because if the delimeter is "-->" it will only be replaced to become like this ":->" 
+	'Reasons being: the regEx pattern we did not specify how many non digit character we are trying to replace, to make it flexible we use the pattern below
+	regEx.Pattern = "(\D+)"
+	'Once delimeter has been identified, the NumRange delimeter will be replaced with another delimeter "::"
+	'Reasons being: To make the delimeter splitting between two numbers more flexible as users can use all sorts of symbol to split the number to their own preferences	
+	ReplacedVal = regEx.Replace(NumRange, "::")
+	'Once delimeter has been replaced, it will be split into array based on the delimeter "::" and trim any blank spaces in the value
+	SplitNumRange = Split(Trim(ReplacedVal), "::")
+	'Second index is Maximum Number
+	MaxNum = SplitNumRange(1)
+	'First Index is Minimum Number
+	MinNum = SplitNumRange(0)
+	'The "Randomize" statement is needed to initliaze the random number generator so that it can generate different and randomize number each execution
+	Randomize
+	'(MaxNum - MinNum + 1) is to check the size of the range and ensuring the maximum number is inclusive for randomize
+	'The "Rnd" keyword will randomize values like this 0.24123218
+	'Once "Rnd" keyword generate the value and it will plus the MinNum val to ensure it is within the minimum range
+	'To ensure that numbers always generated within the range of MinNum to MaxNum need to add MinNum after Rnd keyword
+	'Example if without adding MinNum
+	'Rnd = 6 * 0.0 = 0.0
+	'The example above is invalid because we specify to generate within the range of 1 to 6
+	RndVal = FormatCurrency((MaxNum - MinNum + 1) * Rnd + MinNum, 2)
+	GenerateRndAmount = Trim(Replace(RndVal, "RM", ""))
+	
+End Function
+'Function to replace existing UP Value with new one
+'Useful for test cases verifying new password
+Function ReplaceUPValue(UPParameter, NewUPVal)
+	
+	Const ForReading = 1
+	Const ForWriting = 2
+	
+	Dim ProjPath, UPLocation, outputStr, UPFileContent, ReplacedLine
+	
+	ProjPath = GetProjPath() ' Replace with your function to get the project path
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	'Get UP Location
+	UPLocation = ProjPath & "UserProperty.txt"
+	UPFileContent = ""
+	
+	If Not FSO.FileExists(UPLocation) Then
+	    	MsgBox "UserProperty File Not Exist. Please check if your file exists or not", 0, "Configuration Error"
+	Else
+	    	Set configFile = FSO.OpenTextFile(UPLocation, ForReading, False)
+	    
+	    ' Read the file content
+		    Do While configFile.AtEndOfStream <> True
+		    	'Read through all content and look for the UP paramater
+		        outputStr = configFile.ReadLine
+		        If InStr(outputStr, UPParameter&"=") > 0 Then
+		            'Once found, replace the value with new one
+		            'First get the positon and the string that needs to be replaced
+		            'Second, replaced the new value with NewUPVal
+		            ReplacedLine = Replace(outputStr, Mid(outputStr, Len(UPParameter&"=") + 1), NewUPVal)
+		            outputStr = ReplacedLine
+		        End If
+		        'While the do while loop executes, the file content will be read and stored into "UPFileContent" variables in which will be used to write it back to the file
+		        UPFileContent = UPFileContent & outputStr & vbCrLf
+		        
+		    Loop
+	    
+	    	configFile.Close
+	    
+	   
+		    Set configFile = FSO.OpenTextFile(UPLocation, ForWriting, False)
+		    'Write back the original content back to the text file to avoid overwriting the existing or non intended value
+		    configFile.Write UPFileContent
+		    configFile.Close
+	End If
+	
+	Set FSO = Nothing
+
+End Function
+
+
+
